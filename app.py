@@ -1,32 +1,88 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
-st.title("消費趨勢智慧分析平台")
+st.set_page_config(page_title="消費趨勢智慧分析平台", layout="wide")
 
-page = st.sidebar.selectbox("功能選擇", [
-    "可預測消費趨勢模型",
-    "分析市場趨勢",
-    "試算獲利潛力組合"
-])
+st.title("📊 消費趨勢智慧分析平台")
 
+page = st.sidebar.selectbox(
+    "功能選擇",
+    ["可預測消費趨勢模型", "分析市場趨勢", "試算獲利潛力組合"]
+)
+
+# === 功能一：可預測消費趨勢模型 ===
 if page == "可預測消費趨勢模型":
     st.subheader("📈 可預測消費趨勢模型")
-    data = pd.DataFrame({
-        "月份": ["Jan","Feb","Mar","Apr","May","Jun"],
-        "銷售量": [4000,3000,2000,2780,1890,2390],
-        "趨勢線": [2400,1398,9800,3908,4800,3800]
-    })
-    st.line_chart(data.set_index("月份"))
+    st.write("上傳包含 `date`（或月份）與 `sales` 欄位的 CSV，系統會自動畫出趨勢並預測下一期銷售量。")
 
+    uploaded_file = st.file_uploader("📤 上傳銷售資料 CSV", type=["csv"])
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        st.write("✅ 已成功讀取資料：")
+        st.dataframe(df.head())
+
+        # 日期欄位處理
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+            df['time_index'] = np.arange(len(df))
+        elif '月份' in df.columns:
+            df['time_index'] = np.arange(len(df))
+        else:
+            st.error("❌ 必須包含欄位 'date' 或 '月份'")
+            st.stop()
+
+        # 趨勢線回歸預測
+        if 'sales' in df.columns:
+            model = LinearRegression()
+            X = df[['time_index']]
+            y = df['sales']
+            model.fit(X, y)
+            next_idx = [[len(df)]]
+            prediction = model.predict(next_idx)[0]
+
+            # 畫圖
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.plot(df['time_index'], df['sales'], marker='o', label='實際銷售量')
+            ax.plot(df['time_index'], model.predict(X), linestyle='--', color='orange', label='回歸趨勢線')
+            ax.scatter(len(df), prediction, color='red', label='下一期預測')
+            ax.set_xlabel("時間")
+            ax.set_ylabel("銷售量")
+            ax.set_title("銷售趨勢預測")
+            ax.legend()
+            st.pyplot(fig)
+
+            st.success(f"📅 下一期預測銷售量：約為 **{prediction:.0f}** 單位")
+        else:
+            st.error("❌ 必須包含欄位 'sales'")
+    else:
+        st.info("請先上傳資料檔以開始分析。")
+
+# === 功能二：分析市場趨勢 ===
 elif page == "分析市場趨勢":
-    st.subheader("📊 市場趨勢分析")
+    st.subheader("📊 分析市場趨勢")
+    st.write("分析不同地區或季節性需求變化。")
+
+    regions = ['北部', '中部', '南部', '東部']
+    spending = [50, 40, 70, 30]
     fig, ax = plt.subplots()
-    ax.bar(['北部','中部','南部','東部'], [50,40,70,30], color=['#007bff','#17a2b8','#28a745','#ffc107'])
+    ax.bar(regions, spending, color=['#007bff','#17a2b8','#28a745','#ffc107'])
     ax.set_ylabel("平均月支出（千元）")
     ax.set_title("地域性消費差異")
     st.pyplot(fig)
 
+# === 功能三：試算獲利潛力組合 ===
 else:
     st.subheader("💡 試算獲利最具潛力的品項或組合")
-    st.write("根據商品特性模擬不同定價與銷售策略。")
+    st.write("根據產品特性與價格彈性模擬不同策略。")
+
+    price = st.slider("產品價格 (元)", 50, 500, 200, step=10)
+    discount = st.slider("折扣比例 (%)", 0, 50, 10, step=5)
+    demand = max(0, 1000 - (price - 200) * 2 + discount * 5)
+    profit = demand * (price * (1 - discount / 100) * 0.3)
+
+    st.metric(label="📈 預估銷售量", value=f"{int(demand)} 件")
+    st.metric(label="💰 預估獲利", value=f"{profit:,.0f} 元")
