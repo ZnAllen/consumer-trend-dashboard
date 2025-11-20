@@ -92,18 +92,22 @@ if page == "可預測消費趨勢模型":
             next_idx = [[len(df)]]
             prediction = model.predict(next_idx)[0]
             X = df[["time_index"]]
+            pre_low = prediction * 0.98
+            pre_high = prediction * 1.02
             # 畫圖
             fig, ax = plt.subplots(figsize=(8, 4))
             ax.plot(df['time_index'], df[sales_col], marker='o', label='實際銷售量')
             ax.plot(df['time_index'], model.predict(X), linestyle='--', color='orange', label='回歸趨勢線')
-            ax.scatter(len(df), prediction, color='red', label='下一期預測')
+            plt.vlines(x=len(df), ymin=pre_low, ymax=pre_high, color='red', label='下一期預測區間')
+            ax.scatter(len(df), pre_low, color='red')
+            ax.scatter(len(df), pre_high, color='red')
             ax.set_xlabel("時間")
             ax.set_ylabel("銷售量")
             ax.set_title("銷售趨勢預測")
             ax.legend()
             st.pyplot(fig)
         
-            st.success(f"📅 下一期預測銷售量：約為 **{prediction:.0f}** 單位")
+            st.success(f"📅 下一期預測銷售量：約為 **{pre_low:.0f}~{pre_high:.0f}** 單位")
         else:
             st.error("❌ 必須包含與銷售相關的欄位（如 'Sales', 'sale', '銷售額', '營收' 等）")
 
